@@ -33,7 +33,7 @@ PARAMETERS p_file TYPE localfile.
 
 SELECTION-SCREEN END OF BLOCK b1.
 
-AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file. "Função para inserir o match code e poder selecionar o arquivo de carga de dados.
   PERFORM selecionar_arquivo.
 
 
