@@ -99,7 +99,7 @@ AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
 *======================================================================*
 * START-OF-SELECTION
 *======================================================================*
- START-OF-SELECTION.
+START-OF-SELECTION.
 
   IF P_MODE1 = 'X'.
     P_MODE = 'A'.
@@ -247,12 +247,15 @@ FORM F_MONTAR_BCD.
       UPDATE 'A'"Determina se o processamento será sincromo ou assíncromo.
       MESSAGES INTO TI_MESSAGE. "Onde será armazenado os logs de erros do processamento do Call Transaction.
 
-    PERFORM F_IMPRIME_MESSAGE.
+*    PERFORM F_IMPRIME_MESSAGE. "Form para mostrar os mensagens de erro ou sucesso na tela.
 
     CLEAR: TI_BDCDATA[], WA_BDCDATA, TI_MESSAGE[].
 
   ENDLOOP.
 
+  IF SY-SUBRC = 0.
+    MESSAGE I003. "Procedimento realizado com sucesso.
+  ENDIF.
 
 
 ENDFORM.
@@ -301,40 +304,38 @@ ENDFORM.
 *& -->  p1        text
 *& <--  p2        text
 *&---------------------------------------------------------------------*
-FORM F_IMPRIME_MESSAGE.
-
-  DATA: VL_ID         TYPE BAPIRET2-ID,
-        VL_NUMBER     TYPE BAPIRET2-NUMBER,
-        VL_MESSAGE_V1 TYPE BAPIRET2-MESSAGE_V1,
-        VL_MESSAGE_V2 TYPE BAPIRET2-MESSAGE_V2,
-        VL_MESSAGE_V3 TYPE BAPIRET2-MESSAGE_V3,
-        VL_MESSAGE_V4 TYPE BAPIRET2-MESSAGE_V4,
-        VL_MESSAGE    TYPE BAPIRET2-MESSAGE.
-
-  LOOP AT TI_MESSAGE INTO WA_MESSAGE WHERE MSGTYP = 'E' OR MSGTYP = 'S'.
-
-    VL_ID         = WA_MESSAGE-MSGID.
-    VL_NUMBER     = WA_MESSAGE-MSGNR.
-    VL_MESSAGE_V1 = WA_MESSAGE-MSGV1.
-    VL_MESSAGE_V2 = WA_MESSAGE-MSGV2.
-    VL_MESSAGE_V3 = WA_MESSAGE-MSGV3.
-    VL_MESSAGE_V4 = WA_MESSAGE-MSGV4.
-
-    CALL FUNCTION 'BAPI_MESSAGE_GETDETAIL'
-      EXPORTING
-        ID         = VL_ID
-        NUMBER     = VL_NUMBER
-*       LANGUAGE   = SY-LANGU
-        TEXTFORMAT = 'ASC'
-*       LINKPATTERN        =
-        MESSAGE_V1 = VL_MESSAGE_V1
-        MESSAGE_V2 = VL_MESSAGE_V2
-        MESSAGE_V3 = VL_MESSAGE_V3
-        MESSAGE_V4 = VL_MESSAGE_V4
-      IMPORTING
-        MESSAGE    = VL_MESSAGE.
-
-    WRITE: VL_MESSAGE.
-  ENDLOOP.
-
-ENDFORM.
+*FORM F_IMPRIME_MESSAGE.
+*
+*  DATA: VL_ID         TYPE BAPIRET2-ID,
+*        VL_NUMBER     TYPE BAPIRET2-NUMBER,
+*        VL_MESSAGE_V1 TYPE BAPIRET2-MESSAGE_V1,
+*        VL_MESSAGE_V2 TYPE BAPIRET2-MESSAGE_V2,
+*        VL_MESSAGE_V3 TYPE BAPIRET2-MESSAGE_V3,
+*        VL_MESSAGE_V4 TYPE BAPIRET2-MESSAGE_V4,
+*        VL_MESSAGE    TYPE BAPIRET2-MESSAGE.
+*
+*  LOOP AT TI_MESSAGE INTO WA_MESSAGE WHERE MSGTYP = 'E' OR MSGTYP = 'S'.
+*
+*    VL_ID         = WA_MESSAGE-MSGID.
+*    VL_NUMBER     = WA_MESSAGE-MSGNR.
+*    VL_MESSAGE_V1 = WA_MESSAGE-MSGV1.
+*    VL_MESSAGE_V2 = WA_MESSAGE-MSGV2.
+*    VL_MESSAGE_V3 = WA_MESSAGE-MSGV3.
+*    VL_MESSAGE_V4 = WA_MESSAGE-MSGV4.
+*
+*    CALL FUNCTION 'BAPI_MESSAGE_GETDETAIL'
+*      EXPORTING
+*        ID         = VL_ID
+*        NUMBER     = VL_NUMBER
+*        TEXTFORMAT = 'ASC'
+*        MESSAGE_V1 = VL_MESSAGE_V1
+*        MESSAGE_V2 = VL_MESSAGE_V2
+*        MESSAGE_V3 = VL_MESSAGE_V3
+*        MESSAGE_V4 = VL_MESSAGE_V4
+*      IMPORTING
+*        MESSAGE    = VL_MESSAGE.
+*
+*    WRITE: VL_MESSAGE.
+*  ENDLOOP.
+*
+*ENDFORM.
