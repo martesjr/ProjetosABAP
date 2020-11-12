@@ -1,0 +1,13 @@
+FIELD-SYMBOLS <TABELA> TYPE N. "Caso fosse para usar em uma variável.
+
+FIELD-SYMBOLS <TABELA> TYPE STANDARD TABLE. "Para não repetir duas vezes a função “GUI_UPLOAD, usa o field-symbols, fazendo <tabela> se adaptar
+  "ao tipo de tabela TI_TXT ou TI_CSV.
+
+  IF P_TXT = 'X'.
+
+    ASSIGN TI_TXT TO <TABELA>.
+
+  ELSEIF P_CSV = 'X'.
+    ASSIGN TI_CSV TO <TABELA>.
+
+  ENDIF.

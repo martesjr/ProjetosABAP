@@ -1,0 +1,373 @@
+Transações: SHDB (para mapear o procedimento).
+SE38 (para criar o report).
+SM35 (para visualizar e processar o batchinput).
+
+*&---------------------------------------------------------------------*
+*& Report ZR0018
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZR0018 NO STANDARD PAGE HEADING.
+
+
+
+*======================================================================*
+* TABLES                                                               *
+*======================================================================*
+
+
+
+*======================================================================*
+* DECLARAÇÃO DE TIPOS                                                  *
+* (TY_...)
+*======================================================================*
+TYPES: BEGIN OF TY_FILE,
+         FORNE LIKE ZT0004-FORNE,
+         DENOM LIKE ZT0004-DENOM,
+         ENDER LIKE ZT0004-ENDER,
+         TELEF LIKE ZT0004-TELEF,
+         EMAIL LIKE ZT0004-EMAIL,
+         CNPJ  LIKE ZT0004-CNPJ,
+       END OF TY_FILE.
+
+*======================================================================*
+* DECLARAÇÃO DE TABELAS INTERNAS                                       *
+*   TABELA INTERNA GLOBAL   (T_...)                                    *
+*   TABELA INTERNA LOCAL    (LT_..)                                    *
+*======================================================================*
+DATA: TI_FILE TYPE STANDARD TABLE OF TY_FILE.
+DATA: TI_BDCDATA TYPE STANDARD TABLE OF BDCDATA.
+
+
+*======================================================================*
+* DECLARAÇÃO DE WORK AREA                                              *
+*   WORK AREAS GLOBAIS     (WA...)                                     *
+*   WORK AREAS LOCAIS      (LWA..)                                     *
+*======================================================================*
+DATA: WA_FILE TYPE TY_FILE.
+DATA: WA_BDCDATA TYPE BDCDATA.
+*======================================================================*
+* DECLARAÇÃO DE CONSTANTES                                             *
+* Global (C_...)                                                       *
+* Local  (LC_...)                                                      *
+*======================================================================*
+
+*======================================================================*
+* DECLARAÇÃO DE VARIÁVEIS                                              *
+*   VARIÁVEIS GLOBAIS       (V_...)                                    *
+*   VARIÁVEIS LOCAIS        (L_...)                                    *
+*======================================================================*
+
+
+*======================================================================*
+* DECLARAÇÃO DE RANGES                                                 *
+*   RANGES GLOBAIS          (R_...)                                    *
+*   RANGES LOCAIS           (LR_..)                                    *
+*======================================================================*
+
+*======================================================================*
+* DECLARAÇÃO DE FIELD SYMBOLS                                          *
+*   FIELD-SYMBOLS GLOBAIS  (<FS_...>)                                  *
+*   FIELD-SYMBOLS LOCAIS   (<LFS_..>)                                  *
+*======================================================================*
+
+*======================================================================*
+* PAR METROS DE TELA:                                                  *
+*   SELECT OPTIONS (S_...)                                             *
+*   PARAMETERS     (P_...)                                             *
+*   CHECKBOX       (CB_...)                                            *
+*   RADIOBUTTON    (RB_...)                                            *
+*======================================================================*
+PARAMETERS: P_FILE TYPE LOCALFILE.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
+
+  PERFORM F_SELECIONAR_ARQUIVO.
+
+*======================================================================*
+*/ Initialization
+*======================================================================*
+
+
+
+*======================================================================*
+* START-OF-SELECTION
+*======================================================================*
+ START-OF-SELECTION.
+
+  PERFORM F_UPLOAD_FILE.
+  PERFORM F_MONTAR_BCD.
+
+*======================================================================*
+* END-OF-SELECTION
+*======================================================================*
+*&---------------------------------------------------------------------*
+*& Form F_SELECIONAR_ARQUIVO
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_SELECIONAR_ARQUIVO .
+
+  CALL FUNCTION 'KD_GET_FILENAME_ON_F4'
+    EXPORTING
+*     PROGRAM_NAME        = SYST-REPID
+*     DYNPRO_NUMBER       = SYST-DYNNR
+      FIELD_NAME = P_FILE
+*     STATIC     = ' '
+*     MASK       = ' '
+*     FILEOPERATION       = 'R'
+*     PATH       =
+    CHANGING
+      FILE_NAME  = P_FILE
+*     LOCATION_FLAG       = 'P'
+*   EXCEPTIONS
+*     MASK_TOO_LONG       = 1
+*     OTHERS     = 2
+    .
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  else.
+    MESSAGE text-001 type 'S'. "Arquivo selecionado.
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_UPLOAD_FILE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_UPLOAD_FILE .
+  DATA: VL_FILENAME TYPE STRING.
+
+  VL_FILENAME = P_FILE.
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      FILENAME                = VL_FILENAME
+      FILETYPE                = 'ASC'
+*     HAS_FIELD_SEPARATOR     = ' '
+*     HEADER_LENGTH           = 0
+*     READ_BY_LINE            = 'X'
+*     DAT_MODE                = ' '
+*     CODEPAGE                = ' '
+*     IGNORE_CERR             = ABAP_TRUE
+*     REPLACEMENT             = '#'
+*     CHECK_BOM               = ' '
+*     VIRUS_SCAN_PROFILE      =
+*     NO_AUTH_CHECK           = ' '
+* IMPORTING
+*     FILELENGTH              =
+*     HEADER                  =
+    TABLES
+      DATA_TAB                = TI_FILE
+* CHANGING
+*     ISSCANPERFORMED         = ' '
+    EXCEPTIONS
+      FILE_OPEN_ERROR         = 1
+      FILE_READ_ERROR         = 2
+      NO_BATCH                = 3
+      GUI_REFUSE_FILETRANSFER = 4
+      INVALID_TYPE            = 5
+      NO_AUTHORITY            = 6
+      UNKNOWN_ERROR           = 7
+      BAD_DATA_FORMAT         = 8
+      HEADER_NOT_ALLOWED      = 9
+      SEPARATOR_NOT_ALLOWED   = 10
+      HEADER_TOO_LONG         = 11
+      UNKNOWN_DP_ERROR        = 12
+      ACCESS_DENIED           = 13
+      DP_OUT_OF_MEMORY        = 14
+      DISK_FULL               = 15
+      DP_TIMEOUT              = 16
+      OTHERS                  = 17.
+  IF SY-SUBRC <> 0.
+  else.
+    MESSAGE text-002 type 'S'. "upload realizado.
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_MONTAR_BCD
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_MONTAR_BCD.
+
+  PERFORM F_ABRIR_PASTA. "abrir pasta batchinput
+
+  LOOP AT TI_FILE INTO WA_FILE.
+
+    PERFORM F_MONTAR_TELA USING   'SAPLZTABELAS' '0004' 'X'.
+
+    PERFORM F_MONTAR_DADOS USING  'BDC_CURSOR'   'ZT0004-DENOM(01)'.
+    PERFORM F_MONTAR_DADOS USING  'BDC_OKCODE'   '=NEWL'.
+
+    PERFORM F_MONTAR_TELA USING   'SAPLZTABELAS' '0005' 'X'.
+
+    PERFORM F_MONTAR_DADOS USING  'BDC_CURSOR'   'ZT0004-CNPJ'.
+    PERFORM F_MONTAR_DADOS USING  'BDC_OKCODE'   '=SAVE'.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-FORNE' WA_FILE-FORNE.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-DENOM' WA_FILE-DENOM.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-ENDER' WA_FILE-ENDER.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-TELEF' WA_FILE-TELEF.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-EMAIL' WA_FILE-EMAIL.
+    PERFORM F_MONTAR_DADOS USING  'ZT0004-CNPJ'  WA_FILE-CNPJ.
+
+    PERFORM F_MONTAR_TELA USING   'SAPLZTABELAS' '0005' 'X'.
+
+    PERFORM F_MONTAR_DADOS USING  'BDC_CURSOR'   'ZT0004-DENOM'.
+    PERFORM F_MONTAR_DADOS USING  'BDC_OKCODE'   '=ENDE'.
+
+    PERFORM F_INSERIR_BDC. "Informar a transação que faz a BDC.
+
+  ENDLOOP.
+
+  PERFORM F_FECHAR_PASTA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_MONTAR_TELA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_
+*&      --> P_
+*&---------------------------------------------------------------------*
+FORM F_MONTAR_TELA USING P_PROGRAM P_SCREEN P_START.
+
+  CLEAR WA_BDCDATA.
+
+  WA_BDCDATA-PROGRAM = P_PROGRAM.
+  WA_BDCDATA-DYNPRO = P_SCREEN.
+  WA_BDCDATA-DYNBEGIN = P_START.
+
+  APPEND WA_BDCDATA TO TI_BDCDATA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_MONTAR_BDC
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> P_
+*&      --> P_
+*&---------------------------------------------------------------------*
+FORM F_MONTAR_DADOS USING P_FIELNAME P_FIELVALUE.
+
+  CLEAR WA_BDCDATA.
+
+  WA_BDCDATA-FNAM = P_FIELNAME.
+  WA_BDCDATA-FVAL = P_FIELVALUE.
+
+  APPEND WA_BDCDATA TO TI_BDCDATA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_ABRIR_PASTA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_ABRIR_PASTA .
+
+  CALL FUNCTION 'BDC_OPEN_GROUP'
+    EXPORTING
+      CLIENT              = SY-MANDT
+*     DEST                = FILLER8
+      GROUP               = 'CARGA_FORNEC' "Nome da pasta batchinput que está sendo criada.
+*     HOLDDATE            = FILLER8
+      KEEP                = 'X' "opção para manter o arquivo salvo na pasta batchinput
+      USER                = SY-UNAME "Armazena o nome do usuário que está processando o programa.
+*     RECORD              = FILLER1
+*     PROG                = SY-CPROG
+*     DCPFM               = '%'
+*     DATFM               = '%'
+* IMPORTING
+*     QID                 =
+    EXCEPTIONS
+      CLIENT_INVALID      = 1
+      DESTINATION_INVALID = 2
+      GROUP_INVALID       = 3
+      GROUP_IS_LOCKED     = 4
+      HOLDDATE_INVALID    = 5
+      INTERNAL_ERROR      = 6
+      QUEUE_ERROR         = 7
+      RUNNING             = 8
+      SYSTEM_LOCK_ERROR   = 9
+      USER_INVALID        = 10
+      OTHERS              = 11.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_INSERIR_BDC
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_INSERIR_BDC .
+
+  CALL FUNCTION 'BDC_INSERT'
+    EXPORTING
+      TCODE            = 'ZCAD004' "Transaçã de cadastro de fornecedor.
+*     POST_LOCAL       = NOVBLOCAL
+*     PRINTING         = NOPRINT
+*     SIMUBATCH        = ' '
+*     CTUPARAMS        = ' '
+    TABLES
+      DYNPROTAB        = TI_BDCDATA "Tabela interna com os dados da BDC
+    EXCEPTIONS
+      INTERNAL_ERROR   = 1
+      NOT_OPEN         = 2
+      QUEUE_ERROR      = 3
+      TCODE_INVALID    = 4
+      PRINTING_INVALID = 5
+      POSTING_INVALID  = 6
+      OTHERS           = 7.
+  IF SY-SUBRC <> 0.
+MESSAGE text-003 type 'E'. "Erro ao abrir a pasta.
+  ELSE.
+    REFRESH TI_BDCDATA. "Situação que causou erro, pois a tabela interna tem que receber os novos dados para dar andamento no cadastro.
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_FECHAR_PASTA
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_FECHAR_PASTA .
+
+  CALL FUNCTION 'BDC_CLOSE_GROUP'
+    EXCEPTIONS
+      NOT_OPEN    = 1
+      QUEUE_ERROR = 2
+      OTHERS      = 3.
+  IF SY-SUBRC = 0.
+    MESSAGE TEXT-004 TYPE 'I'. "Operação realizada com sucesso.
+  ENDIF.
+
+
+ENDFORM.

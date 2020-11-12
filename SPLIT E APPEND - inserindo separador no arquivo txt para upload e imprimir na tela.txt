@@ -1,0 +1,10 @@
+ IF P_CSV = 'X'.
+
+    LOOP AT <TABELA> INTO WA_CSV.
+
+      SPLIT WA_CSV AT ';' INTO WA_TXT-COD WA_TXT-NOME WA_TXT-TELEF. "Comando SPLIT insere o separador nos campos.
+      APPEND WA_TXT TO TI_TXT. "Comando APPENDS grava na tabela interna o conteúdo da workarea.
+
+    ENDLOOP.
+
+  ENDIF.

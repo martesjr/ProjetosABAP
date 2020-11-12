@@ -1,0 +1,65 @@
+FORM f_upload.
+  DATA: vl_file TYPE string.
+
+  vl_file = p_file. " O P_FILE é do tipo caracter e o o filename da função é string, por isso a necessidade de fazer essa manobra para não dar um 
+  "dump (erro no tempo de execução).
+
+  FIELD-SYMBOLS <tabela> TYPE STANDARD TABLE. "Para não repetir duas vezes a função “GUI_UPLOAD, usa o field-symbols, fazendo <tabela> se adaptar 
+  "ao tipo de tabela TI_TXT ou TI_CSV.
+
+  IF p_txt = 'X'.
+
+    ASSIGN ti_txt TO <tabela>.
+
+  ELSEIF p_csv = 'X'.
+    ASSIGN ti_csv TO <tabela>.
+
+  ENDIF.
+
+
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      filename                = vl_file
+      filetype                = 'ASC'
+*     HAS_FIELD_SEPARATOR     = ' '
+*     HEADER_LENGTH           = 0
+*     READ_BY_LINE            = 'X'
+*     DAT_MODE                = ' '
+*     CODEPAGE                = ' '
+*     IGNORE_CERR             = ABAP_TRUE
+*     REPLACEMENT             = '#'
+*     CHECK_BOM               = ' '
+*     VIRUS_SCAN_PROFILE      =
+*     NO_AUTH_CHECK           = ' '
+* IMPORTING
+*     FILELENGTH              =
+*     HEADER                  =
+    TABLES
+      data_tab                = <tabela>
+* CHANGING
+*     ISSCANPERFORMED         = ' '
+    EXCEPTIONS
+      file_open_error         = 1
+      file_read_error         = 2
+      no_batch                = 3
+      gui_refuse_filetransfer = 4
+      invalid_type            = 5
+      no_authority            = 6
+      unknown_error           = 7
+      bad_data_format         = 8
+      header_not_allowed      = 9
+      separator_not_allowed   = 10
+      header_too_long         = 11
+      unknown_dp_error        = 12
+      access_denied           = 13
+      dp_out_of_memory        = 14
+      disk_full               = 15
+      dp_timeout              = 16
+      OTHERS                  = 17.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+ENDFORM.

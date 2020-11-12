@@ -1,0 +1,23 @@
+FORM F_SELECINAR_ARQUIVO.
+
+  CALL FUNCTION 'KD_GET_FILENAME_ON_F4'
+    EXPORTING
+*     PROGRAM_NAME  = SYST-REPID
+*     DYNPRO_NUMBER = SYST-DYNNR
+      FIELD_NAME    = P_FILE "Nome do parameter para ativar o matchcode
+*     STATIC        = ' '
+*     MASK          = ' '
+*     FILEOPERATION = 'R'
+*     PATH          =
+    CHANGING
+      FILE_NAME     = P_FILE "Nome do parameter para ativar o matchcode
+*     LOCATION_FLAG = 'P'
+    EXCEPTIONS
+      MASK_TOO_LONG = 1
+      OTHERS        = 2.
+  IF SY-SUBRC <> 0.
+    MESSAGE TEXT-001 TYPE 'E'. "Erro na seleção do arquivo.
+  ENDIF.
+
+
+ENDFORM.

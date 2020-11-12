@@ -1,0 +1,176 @@
+*&---------------------------------------------------------------------*
+*& Report ZR0016
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZR0016.
+
+*Tipos
+TYPES: BEGIN OF TY_TXT,
+         COD(10)   TYPE C,
+         NOME(30)  TYPE C,
+         TELEF(14) TYPE C,
+       END OF TY_TXT.
+
+TYPES: BEGIN OF TY_CSV,
+         LINE(100) TYPE C,
+       END OF TY_CSV.
+
+*Tabelas internas
+DATA: TI_TXT TYPE TABLE OF TY_TXT.
+DATA: TI_CSV TYPE TABLE OF TY_CSV.
+
+*WorkArea
+DATA: WA_TXT TYPE TY_TXT.
+DATA: WA_CSV TYPE TY_CSV.
+
+*Tela de seleção
+
+
+PARAMETERS: P_FILE TYPE LOCALFILE,
+            P_TXT  RADIOBUTTON GROUP G1,
+            P_CSV  RADIOBUTTON GROUP G1.
+
+
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
+
+  PERFORM F_SELECINAR_ARQUIVO.
+
+
+START-OF-SELECTION.
+
+  PERFORM F_UPLOAD.
+  PERFORM F_IMPRIMIR_ARQUIVO.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form F_SELECINAR_ARQUIVO
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_SELECINAR_ARQUIVO.
+
+  CALL FUNCTION 'KD_GET_FILENAME_ON_F4'
+    EXPORTING
+*     PROGRAM_NAME  = SYST-REPID
+*     DYNPRO_NUMBER = SYST-DYNNR
+      FIELD_NAME    = P_FILE "Nome do parameter para ativar o matchcode
+*     STATIC        = ' '
+*     MASK          = ' '
+*     FILEOPERATION = 'R'
+*     PATH          =
+    CHANGING
+      FILE_NAME     = P_FILE "Nome do parameter para ativar o matchcode
+*     LOCATION_FLAG = 'P'
+    EXCEPTIONS
+      MASK_TOO_LONG = 1
+      OTHERS        = 2.
+  IF SY-SUBRC <> 0.
+    MESSAGE TEXT-001 TYPE 'E'. "Erro na seleção do arquivo.
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_UPLOAD
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_UPLOAD.
+  DATA: VL_FILE TYPE STRING.
+
+  VL_FILE = P_FILE. " O P_FILE é do tipo caracter e o o filename da função é string, por isso a necessidade de fazer essa manobra para não dar um
+  "dump (erro no tempo de execução).
+
+  FIELD-SYMBOLS <TABELA> TYPE STANDARD TABLE. "Para não repetir duas vezes a função “GUI_UPLOAD, usa o field-symbols, fazendo <tabela> se adaptar
+  "ao tipo de tabela TI_TXT ou TI_CSV.
+
+  IF P_TXT = 'X'.
+    ASSIGN TI_TXT TO <TABELA>.
+
+  ELSEIF P_CSV = 'X'.
+    ASSIGN TI_CSV TO <TABELA>.
+
+  ENDIF.
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      FILENAME                = VL_FILE
+      FILETYPE                = 'ASC'
+*     HAS_FIELD_SEPARATOR     = ' '
+*     HEADER_LENGTH           = 0
+*     READ_BY_LINE            = 'X'
+*     DAT_MODE                = ' '
+*     CODEPAGE                = ' '
+*     IGNORE_CERR             = ABAP_TRUE
+*     REPLACEMENT             = '#'
+*     CHECK_BOM               = ' '
+*     VIRUS_SCAN_PROFILE      =
+*     NO_AUTH_CHECK           = ' '
+* IMPORTING
+*     FILELENGTH              =
+*     HEADER                  =
+    TABLES
+      DATA_TAB                = <TABELA>
+* CHANGING
+*     ISSCANPERFORMED         = ' '
+    EXCEPTIONS
+      FILE_OPEN_ERROR         = 1
+      FILE_READ_ERROR         = 2
+      NO_BATCH                = 3
+      GUI_REFUSE_FILETRANSFER = 4
+      INVALID_TYPE            = 5
+      NO_AUTHORITY            = 6
+      UNKNOWN_ERROR           = 7
+      BAD_DATA_FORMAT         = 8
+      HEADER_NOT_ALLOWED      = 9
+      SEPARATOR_NOT_ALLOWED   = 10
+      HEADER_TOO_LONG         = 11
+      UNKNOWN_DP_ERROR        = 12
+      ACCESS_DENIED           = 13
+      DP_OUT_OF_MEMORY        = 14
+      DISK_FULL               = 15
+      DP_TIMEOUT              = 16
+      OTHERS                  = 17.
+  IF SY-SUBRC <> 0.
+    MESSAGE TEXT-002 TYPE 'I'. "Erro na abertura do arquivo.
+    STOP.
+  ENDIF.
+
+  IF P_CSV = 'X'.
+
+    LOOP AT <TABELA> INTO WA_CSV.
+
+      SPLIT WA_CSV AT ';' INTO WA_TXT-COD WA_TXT-NOME WA_TXT-TELEF. "Comando SPLIT insere o separador nos campos.
+      APPEND WA_TXT TO TI_TXT.
+
+    ENDLOOP.
+
+  ENDIF.
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form F_IMPRIMIR_ARQUIVO
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM F_IMPRIMIR_ARQUIVO.
+  LOOP AT TI_TXT INTO WA_TXT.
+
+    WRITE:/ WA_TXT-COD, WA_TXT-NOME, WA_TXT-TELEF.
+
+  ENDLOOP.
+
+ENDFORM.
