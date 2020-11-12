@@ -1,13 +1,9 @@
-Transações: SHDB (para mapear o procedimento).
-SE38 (para criar o report).
-SM35 (para visualizar e processar o batchinput).
-
 *&---------------------------------------------------------------------*
-*& Report ZR0018
+*& Report ZR0019
 *&---------------------------------------------------------------------*
 *&
 *&---------------------------------------------------------------------*
-REPORT ZR0018 NO STANDARD PAGE HEADING.
+REPORT ZR0019 MESSAGE-ID ZCM0001 NO STANDARD PAGE HEADING.
 
 
 
@@ -35,9 +31,10 @@ TYPES: BEGIN OF TY_FILE,
 *   TABELA INTERNA GLOBAL   (T_...)                                    *
 *   TABELA INTERNA LOCAL    (LT_..)                                    *
 *======================================================================*
-DATA: TI_FILE TYPE STANDARD TABLE OF TY_FILE.
-DATA: TI_BDCDATA TYPE STANDARD TABLE OF BDCDATA. "BDC é structure de mapeamento para o BatchInput e 
+DATA: TI_FILE    TYPE STANDARD TABLE OF TY_FILE.
+DATA: TI_BDCDATA TYPE STANDARD TABLE OF BDCDATA. "BDC é structure de mapeamento para o BatchInput e
 "Call Transaction. (PROGRAM, DYNPRO, DYNBEGIN, FNAM, FVAL)
+DATA: TI_MESSAGE TYPE STANDARD TABLE OF BDCMSGCOLL. "BDCMSGCOLL é a structure para armazenar os logs de erro no Call Transaction.
 
 
 *======================================================================*
@@ -45,8 +42,9 @@ DATA: TI_BDCDATA TYPE STANDARD TABLE OF BDCDATA. "BDC é structure de mapeamento
 *   WORK AREAS GLOBAIS     (WA...)                                     *
 *   WORK AREAS LOCAIS      (LWA..)                                     *
 *======================================================================*
-DATA: WA_FILE TYPE TY_FILE.
+DATA: WA_FILE    TYPE TY_FILE.
 DATA: WA_BDCDATA TYPE BDCDATA.
+DATA: WA_MESSAGE TYPE BDCMSGCOLL.
 *======================================================================*
 * DECLARAÇÃO DE CONSTANTES                                             *
 * Global (C_...)                                                       *
@@ -58,7 +56,7 @@ DATA: WA_BDCDATA TYPE BDCDATA.
 *   VARIÁVEIS GLOBAIS       (V_...)                                    *
 *   VARIÁVEIS LOCAIS        (L_...)                                    *
 *======================================================================*
-
+DATA: P_MODE TYPE C.
 
 *======================================================================*
 * DECLARAÇÃO DE RANGES                                                 *
@@ -73,13 +71,20 @@ DATA: WA_BDCDATA TYPE BDCDATA.
 *======================================================================*
 
 *======================================================================*
-* PAR METROS DE TELA:                                                  *
+* PARÂMETROS DE TELA:                                                  *
 *   SELECT OPTIONS (S_...)                                             *
 *   PARAMETERS     (P_...)                                             *
 *   CHECKBOX       (CB_...)                                            *
 *   RADIOBUTTON    (RB_...)                                            *
 *======================================================================*
-PARAMETERS: P_FILE TYPE LOCALFILE.
+
+*Tela de seleção
+PARAMETERS: P_FILE  TYPE LOCALFILE DEFAULT'E:\Google Drive\SAP\Academia SAP - Udemy\Carga-call-transaction-01.txt',
+*            P_MODE TYPE C DEFAULT 'A'.
+            P_MODE1 RADIOBUTTON GROUP G1,
+            P_MODE2 RADIOBUTTON GROUP G1.
+
+
 
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
 
@@ -95,6 +100,12 @@ AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
 * START-OF-SELECTION
 *======================================================================*
  START-OF-SELECTION.
+
+  IF P_MODE1 = 'X'.
+    P_MODE = 'A'.
+  ELSEIF P_MODE2 = 'X'.
+    P_MODE = 'N'.
+  ENDIF.
 
   PERFORM F_UPLOAD_FILE.
   PERFORM F_MONTAR_BCD.
@@ -130,8 +141,8 @@ FORM F_SELECIONAR_ARQUIVO .
     .
   IF SY-SUBRC <> 0.
 * Implement suitable error handling here
-  else.
-    MESSAGE text-001 type 'S'. "Arquivo selecionado.
+  ELSE.
+    MESSAGE S001. "Arquivo selecionado.
   ENDIF.
 
 
@@ -145,7 +156,8 @@ ENDFORM.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM F_UPLOAD_FILE .
-  DATA: VL_FILENAME TYPE STRING.
+  DATA: VL_FILENAME TYPE STRING. "Foi necessário declarar essa variável porque o elemento de dados do FILENAME é string que por sua fez o P_FILE (LOCALFILE)
+  "É um char.
 
   VL_FILENAME = P_FILE.
 
@@ -189,8 +201,9 @@ FORM F_UPLOAD_FILE .
       DP_TIMEOUT              = 16
       OTHERS                  = 17.
   IF SY-SUBRC <> 0.
-  else.
-    MESSAGE text-002 type 'S'. "upload realizado.
+    MESSAGE I000. "Erro no upload do arquivo.
+  ELSE.
+    MESSAGE S002. "Upload do arquivo realizado com sucesso.
   ENDIF.
 
 
@@ -204,8 +217,6 @@ ENDFORM.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM F_MONTAR_BCD.
-
-  PERFORM F_ABRIR_PASTA. "abrir pasta batchinput
 
   LOOP AT TI_FILE INTO WA_FILE.
 
@@ -230,11 +241,19 @@ FORM F_MONTAR_BCD.
     PERFORM F_MONTAR_DADOS USING  'BDC_CURSOR'   'ZT0004-DENOM'.
     PERFORM F_MONTAR_DADOS USING  'BDC_OKCODE'   '=ENDE'.
 
-    PERFORM F_INSERIR_BDC. "Informar a transação que faz a BDC.
+    CALL TRANSACTION 'ZCAD004' "Executando a transação através do Call Transaction
+      USING TI_BDCDATA
+      MODE P_MODE "Opção similar a que aparece no BatchInput pergutando se quer acompanhar o processamento da transação passo a pass ou em background.
+      UPDATE 'A'"Determina se o processamento será sincromo ou assíncromo.
+      MESSAGES INTO TI_MESSAGE. "Onde será armazenado os logs de erros do processamento do Call Transaction.
+
+    PERFORM F_IMPRIME_MESSAGE.
+
+    CLEAR: TI_BDCDATA[], WA_BDCDATA, TI_MESSAGE[].
 
   ENDLOOP.
 
-  PERFORM F_FECHAR_PASTA.
+
 
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -275,100 +294,47 @@ FORM F_MONTAR_DADOS USING P_FIELNAME P_FIELVALUE.
 
 ENDFORM.
 *&---------------------------------------------------------------------*
-*& Form F_ABRIR_PASTA
+*& Form F_IMPRIME_MESSAGE
 *&---------------------------------------------------------------------*
 *& text
 *&---------------------------------------------------------------------*
 *& -->  p1        text
 *& <--  p2        text
 *&---------------------------------------------------------------------*
-FORM F_ABRIR_PASTA .
+FORM F_IMPRIME_MESSAGE.
 
-  CALL FUNCTION 'BDC_OPEN_GROUP'
-    EXPORTING
-      CLIENT              = SY-MANDT
-*     DEST                = FILLER8
-      GROUP               = 'CARGA_FORNEC' "Nome da pasta batchinput que está sendo criada.
-*     HOLDDATE            = FILLER8
-      KEEP                = 'X' "opção para manter o arquivo salvo na pasta batchinput
-      USER                = SY-UNAME "Armazena o nome do usuário que está processando o programa.
-*     RECORD              = FILLER1
-*     PROG                = SY-CPROG
-*     DCPFM               = '%'
-*     DATFM               = '%'
-* IMPORTING
-*     QID                 =
-    EXCEPTIONS
-      CLIENT_INVALID      = 1
-      DESTINATION_INVALID = 2
-      GROUP_INVALID       = 3
-      GROUP_IS_LOCKED     = 4
-      HOLDDATE_INVALID    = 5
-      INTERNAL_ERROR      = 6
-      QUEUE_ERROR         = 7
-      RUNNING             = 8
-      SYSTEM_LOCK_ERROR   = 9
-      USER_INVALID        = 10
-      OTHERS              = 11.
-  IF SY-SUBRC <> 0.
-* Implement suitable error handling here
-  ENDIF.
+  DATA: VL_ID         TYPE BAPIRET2-ID,
+        VL_NUMBER     TYPE BAPIRET2-NUMBER,
+        VL_MESSAGE_V1 TYPE BAPIRET2-MESSAGE_V1,
+        VL_MESSAGE_V2 TYPE BAPIRET2-MESSAGE_V2,
+        VL_MESSAGE_V3 TYPE BAPIRET2-MESSAGE_V3,
+        VL_MESSAGE_V4 TYPE BAPIRET2-MESSAGE_V4,
+        VL_MESSAGE    TYPE BAPIRET2-MESSAGE.
 
+  LOOP AT TI_MESSAGE INTO WA_MESSAGE WHERE MSGTYP = 'E' OR MSGTYP = 'S'.
 
-ENDFORM.
-*&---------------------------------------------------------------------*
-*& Form F_INSERIR_BDC
-*&---------------------------------------------------------------------*
-*& text
-*&---------------------------------------------------------------------*
-*& -->  p1        text
-*& <--  p2        text
-*&---------------------------------------------------------------------*
-FORM F_INSERIR_BDC .
+    VL_ID         = WA_MESSAGE-MSGID.
+    VL_NUMBER     = WA_MESSAGE-MSGNR.
+    VL_MESSAGE_V1 = WA_MESSAGE-MSGV1.
+    VL_MESSAGE_V2 = WA_MESSAGE-MSGV2.
+    VL_MESSAGE_V3 = WA_MESSAGE-MSGV3.
+    VL_MESSAGE_V4 = WA_MESSAGE-MSGV4.
 
-  CALL FUNCTION 'BDC_INSERT'
-    EXPORTING
-      TCODE            = 'ZCAD004' "Transaçã de cadastro de fornecedor.
-*     POST_LOCAL       = NOVBLOCAL
-*     PRINTING         = NOPRINT
-*     SIMUBATCH        = ' '
-*     CTUPARAMS        = ' '
-    TABLES
-      DYNPROTAB        = TI_BDCDATA "Tabela interna com os dados da BDC
-    EXCEPTIONS
-      INTERNAL_ERROR   = 1
-      NOT_OPEN         = 2
-      QUEUE_ERROR      = 3
-      TCODE_INVALID    = 4
-      PRINTING_INVALID = 5
-      POSTING_INVALID  = 6
-      OTHERS           = 7.
-  IF SY-SUBRC <> 0.
-MESSAGE text-003 type 'E'. "Erro ao abrir a pasta.
-  ELSE.
-    REFRESH TI_BDCDATA. "Situação que causou erro, pois a tabela interna tem que receber os novos dados para dar andamento no cadastro.
-  ENDIF.
+    CALL FUNCTION 'BAPI_MESSAGE_GETDETAIL'
+      EXPORTING
+        ID         = VL_ID
+        NUMBER     = VL_NUMBER
+*       LANGUAGE   = SY-LANGU
+        TEXTFORMAT = 'ASC'
+*       LINKPATTERN        =
+        MESSAGE_V1 = VL_MESSAGE_V1
+        MESSAGE_V2 = VL_MESSAGE_V2
+        MESSAGE_V3 = VL_MESSAGE_V3
+        MESSAGE_V4 = VL_MESSAGE_V4
+      IMPORTING
+        MESSAGE    = VL_MESSAGE.
 
-
-ENDFORM.
-*&---------------------------------------------------------------------*
-*& Form F_FECHAR_PASTA
-*&---------------------------------------------------------------------*
-*& text
-*&---------------------------------------------------------------------*
-*& -->  p1        text
-*& <--  p2        text
-*&---------------------------------------------------------------------*
-FORM F_FECHAR_PASTA .
-
-  CALL FUNCTION 'BDC_CLOSE_GROUP'
-    EXCEPTIONS
-      NOT_OPEN    = 1
-      QUEUE_ERROR = 2
-      OTHERS      = 3.
-  IF SY-SUBRC = 0.
-    MESSAGE TEXT-004 TYPE 'I'. "Operação realizada com sucesso.
-  ENDIF.
-
+    WRITE: VL_MESSAGE.
+  ENDLOOP.
 
 ENDFORM.
